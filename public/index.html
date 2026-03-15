@@ -32,6 +32,15 @@
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+    <!-- Netlify Forms detection -->
+    <form name="kulukorvaus" netlify netlify-honeypot="bot-field" enctype="multipart/form-data" hidden>
+      <input name="bot-field" />
+      <input name="Hakija" /><input name="Puhelinnumero" /><input name="Sähköposti" />
+      <input name="Pankki / BIC" /><input name="IBAN" /><input name="Lomaketyyppi" />
+      <input name="ESTIEM-tapahtuma" /><input name="Erittely" /><input name="Yhteensä (EUR)" />
+      <input name="Liitteiden kuvaus" /><input name="Paikka" /><input name="Päivämäärä" />
+      <input name="Allekirjoitus" /><input type="file" name="liitteet" multiple />
+    </form>
     <!--
       This HTML file is a template.
       If you open it directly in the browser, you will see an empty page.
