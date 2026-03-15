@@ -127,13 +127,13 @@ export default function KulukorvausForm() {
 
     const subject = `Kulukorvausanomus — ${name}${formType === "estiem" ? ` (ESTIEM: ${eventTitle})` : ""}`;
     const sharedFields = {
-      Hakija: name, Puhelinnumero: phone, Sähköposti: email,
-      "Pankki / BIC": bank, IBAN: iban,
+      Hakija: name, Puhelinnumero: phone, Sahkoposti: email,
+      Pankki_BIC: bank, IBAN: iban,
       Lomaketyyppi: formType === "estiem" ? "ESTIEM-matka" : "Normaali kulukorvaus",
-      ...(formType === "estiem" ? { "ESTIEM-tapahtuma": eventTitle } : {}),
-      Erittely: rowsText, "Yhteensä (EUR)": total.toFixed(2),
-      "Liitteiden kuvaus": attachmentDesc, Paikka: location,
-      Päivämäärä: dateField, Allekirjoitus: signature,
+      ...(formType === "estiem" ? { ESTIEM_tapahtuma: eventTitle } : {}),
+      Erittely: rowsText, Yhteensa_EUR: total.toFixed(2),
+      Liitteiden_kuvaus: attachmentDesc, Paikka: location,
+      Paivamaara: dateField, Allekirjoitus: signature,
     };
 
     // Netlify Forms — sinulle + estiem (liitteineen)
