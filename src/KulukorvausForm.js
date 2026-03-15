@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { generateAndDownloadPDF } from "./generatePDF";
 
 const WEB3FORMS_KEY = "a0fa1d10-f7ef-4d52-9fd7-7804b9c87579";
 
@@ -158,6 +159,7 @@ export default function KulukorvausForm() {
         fetch("https://api.web3forms.com/submit", { method: "POST", body: web3Data }),
       ]);
       if (nlRes.ok) {
+        await generateAndDownloadPDF({ name, phone, email, bank, iban, formType, eventTitle, estiemEventType, rows, total, attachmentDesc, location, dateField, signature, attachedFiles });
         setShowSuccess(true);
       } else {
         setSendError("Lähetys epäonnistui. Yritä uudelleen.");
