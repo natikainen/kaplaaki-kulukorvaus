@@ -7,7 +7,7 @@ const KAPLAAKI_LOGO = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAFAAAABQCAI
 
 const ESTIEM_MAX_TRAVEL = 250;
 const ESTIEM_PARTICIPATION_MAX = 50;
-const KM_RATE = 0.23;
+
 
 function validateIBAN(iban) {
   const cleaned = iban.replace(/\s/g, "").toUpperCase();
