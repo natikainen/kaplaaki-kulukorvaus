@@ -77,7 +77,6 @@ export default function KulukorvausForm() {
 
   // ESTIEM specific
   const [estiemEventType, setEstiemEventType] = useState("academic"); // academic | other | representation
-  const [hasReport, setHasReport] = useState(false);
   const [hasCompensation, setHasCompensation] = useState(false);
   const [hasCertificate, setHasCertificate] = useState(false);
 
