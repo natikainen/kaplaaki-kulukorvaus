@@ -237,16 +237,11 @@ export default function KulukorvausForm() {
       {/* Header */}
       <div style={{ background: KAPLAAKI_NAVY, color: "#fff", padding: "16px 24px" }}>
         <div style={{ maxWidth: 640, margin: "0 auto" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <img src={KAPLAAKI_LOGO} alt="Kaplaaki ry" style={{ width: 48, height: 48, filter: "brightness(0) invert(1)" }} />
-              <div>
-                <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em" }}>KAPLAAKI RY</h1>
-                <p style={{ margin: "2px 0 0", fontSize: 11, opacity: 0.6, letterSpacing: "0.05em", textTransform: "uppercase" }}>Kulukorvausanomus</p>
-              </div>
-            </div>
-            <div style={{ textAlign: "right", fontSize: 11, opacity: 0.5 }}>
-              
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 14 }}>
+            <img src={KAPLAAKI_LOGO} alt="Kaplaaki ry" style={{ width: 48, height: 48, filter: "brightness(0) invert(1)" }} />
+            <div>
+              <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em" }}>KAPLAAKI RY</h1>
+              <p style={{ margin: "2px 0 0", fontSize: 11, opacity: 0.6, letterSpacing: "0.05em", textTransform: "uppercase" }}>Kulukorvausanomus</p>
             </div>
           </div>
         </div>
