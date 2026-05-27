@@ -22,6 +22,25 @@ function validatePhone(phone) {
   return /^[\d\s+\-()]{7,20}$/.test(phone);
 }
 
+function formatIBAN(value) {
+  const cleaned = value.replace(/\s/g, "").toUpperCase();
+  return cleaned.match(/.{1,4}/g)?.join(" ") ?? cleaned;
+}
+
+function formatPhone(value) {
+  const digits = value.replace(/[^\d+]/g, "");
+  if (digits.startsWith("+358")) {
+    const rest = digits.slice(4);
+    const parts = [rest.slice(0, 2), rest.slice(2, 5), rest.slice(5)].filter(Boolean);
+    return "+358 " + parts.join(" ");
+  }
+  if (digits.startsWith("0")) {
+    const parts = [digits.slice(0, 3), digits.slice(3, 6), digits.slice(6)].filter(Boolean);
+    return parts.join(" ");
+  }
+  return value;
+}
+
 function parseAmount(str) {
   if (!str) return 0;
   const cleaned = str.replace(",", ".").trim();
@@ -32,7 +51,7 @@ function parseAmount(str) {
 const initialRow = () => ({ date: "", description: "", amount: "" });
 
 export default function KulukorvausForm() {
-  const [formType, setFormType] = useState("normal"); // normal | estiem | kilometrikorvaus
+  const [formType, setFormType] = useState("normal"); // normal | estiem
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -46,11 +65,13 @@ export default function KulukorvausForm() {
   const [signature, setSignature] = useState("");
   const [dateField, setDateField] = useState(new Date().toLocaleDateString("fi-FI"));
 
-  // Kilometrikorvaus specific
+  // Kilometrikorvaus (valinnainen lisä)
+  const [includeKm, setIncludeKm] = useState(false);
   const [kmFrom, setKmFrom] = useState("");
   const [kmTo, setKmTo] = useState("");
   const [kmPurpose, setKmPurpose] = useState("");
   const [kmDistance, setKmDistance] = useState("");
+  const [kmConsumption, setKmConsumption] = useState("6");
   const [kmFuelPrice, setKmFuelPrice] = useState("");
   const [kmFuelReceiptAttached, setKmFuelReceiptAttached] = useState(false);
 
@@ -71,10 +92,11 @@ export default function KulukorvausForm() {
   const total = rows.reduce((sum, r) => sum + parseAmount(r.amount), 0);
   const kmCompensation = (() => {
     const km = parseFloat(kmDistance);
+    const cons = parseFloat((kmConsumption || "").toString().replace(",", "."));
     const fuel = parseFloat((kmFuelPrice || "").toString().replace(",", "."));
-    return km > 0 && fuel > 0 ? km * 0.06 * fuel : 0;
+    return km > 0 && cons > 0 && fuel > 0 ? km * (cons / 100) * fuel : 0;
   })();
-  const displayTotal = formType === "kilometrikorvaus" ? kmCompensation : total;
+  const displayTotal = total + (includeKm ? kmCompensation : 0);
 
   const updateRow = (index, field, value) => {
     setRows(prev => {
@@ -98,27 +120,28 @@ export default function KulukorvausForm() {
     if (!bank.trim()) errs.push("Pankin nimi / BIC puuttuu");
     if (!iban.trim() || !validateIBAN(iban)) errs.push("IBAN puuttuu tai on väärässä muodossa (esim. FI21 1234 5600 0007 85)");
 
-    if (formType === "kilometrikorvaus") {
+    const filledRows = rows.filter(r => r.date || r.description || r.amount);
+    if (filledRows.length === 0 && !includeKm) errs.push("Vähintään yksi erittelyrivi tai kilometrikorvaus vaaditaan");
+
+    filledRows.forEach((r, i) => {
+      if (!r.date) errs.push(`Rivi ${i + 1}: päivämäärä puuttuu`);
+      if (!r.description) errs.push(`Rivi ${i + 1}: selitys puuttuu`);
+      if (!r.amount || parseAmount(r.amount) <= 0) errs.push(`Rivi ${i + 1}: summa puuttuu tai on 0`);
+    });
+
+    if (!receiptsAttached) errs.push("Vahvista että liitteet ovat mukana");
+
+    if (includeKm) {
       if (!kmFrom.trim()) errs.push("Matkan lähtöpaikka puuttuu");
       if (!kmTo.trim()) errs.push("Matkan määränpää puuttuu");
       if (!kmPurpose.trim()) errs.push("Matkan tarkoitus puuttuu");
       const km = parseFloat(kmDistance);
       if (!kmDistance || isNaN(km) || km < 1) errs.push("Ajetut kilometrit puuttuvat tai ovat alle 1");
+      const cons = parseFloat((kmConsumption || "").toString().replace(",", "."));
+      if (!kmConsumption || isNaN(cons) || cons <= 0) errs.push("Auton kulutus puuttuu tai on virheellinen");
       const fuel = parseFloat((kmFuelPrice || "").toString().replace(",", "."));
       if (!kmFuelPrice || isNaN(fuel) || fuel <= 0) errs.push("Polttoaineen litrahinta puuttuu");
       if (!kmFuelReceiptAttached) errs.push("Vahvista että tankkauskuitti on liitteenä");
-    } else {
-      const filledRows = rows.filter(r => r.date || r.description || r.amount);
-      if (filledRows.length === 0) errs.push("Vähintään yksi erittelyrivi pitää täyttää");
-
-      filledRows.forEach((r, i) => {
-        if (!r.date) errs.push(`Rivi ${i + 1}: päivämäärä puuttuu`);
-        if (!r.description) errs.push(`Rivi ${i + 1}: selitys puuttuu`);
-        if (!r.amount || parseAmount(r.amount) <= 0) errs.push(`Rivi ${i + 1}: summa puuttuu tai on 0`);
-      });
-
-      if (total <= 0) errs.push("Kokonaissumma on 0 €");
-      if (!receiptsAttached) errs.push("Vahvista että liitteet ovat mukana");
     }
     if (!attachmentDesc.trim()) errs.push("Liitteiden kuvaus puuttuu");
     if (!location.trim()) errs.push("Paikka puuttuu");
@@ -146,7 +169,7 @@ export default function KulukorvausForm() {
     setGenerating(true);
     setPdfError(null);
     try {
-      await generateAndDownloadPDF({ name, phone, email, bank, iban, formType, estiemEventType, rows, total, attachmentDesc, location, dateField, signature, attachedFiles, tapahtuma, kmFrom, kmTo, kmPurpose, kmDistance: parseFloat(kmDistance) || 0, kmFuelPrice: parseFloat((kmFuelPrice || "").replace(",", ".")) || 0, kmCompensation });
+      await generateAndDownloadPDF({ name, phone, email, bank, iban, formType, estiemEventType, rows, total, attachmentDesc, location, dateField, signature, attachedFiles, tapahtuma, includeKm, kmFrom, kmTo, kmPurpose, kmDistance: parseFloat(kmDistance) || 0, kmConsumption: parseFloat((kmConsumption || "").replace(",", ".")) || 6, kmFuelPrice: parseFloat((kmFuelPrice || "").replace(",", ".")) || 0, kmCompensation });
       setShowSuccess(true);
     } catch (err) {
       setPdfError(`PDF:n luonti epäonnistui: ${err?.message || err}`);
@@ -178,7 +201,6 @@ export default function KulukorvausForm() {
           <p style={{ color: "#666", fontSize: 14, lineHeight: 1.6, margin: "0 0 24px" }}>
             Lähetä PDF sähköpostilla osoitteeseen{" "}
             <strong>{formType === "estiem" ? "talous@kaplaaki.fi ja estiem@kaplaaki.fi" : "talous@kaplaaki.fi"}</strong>.
-            {formType === "kilometrikorvaus" && <><br/><span style={{ fontSize: 13, color: "#888" }}>Aihe: Kilometrikorvausanomus — {name}</span></>}
           </p>
           <p style={{ background: "#f0f4f8", padding: "12px 16px", borderRadius: 8, fontSize: 13, color: "#444", lineHeight: 1.5 }}>
             <strong>Yhteensä:</strong> {displayTotal.toFixed(2)} EUR<br />
@@ -236,7 +258,7 @@ export default function KulukorvausForm() {
 
         {/* Form type selector */}
         <div style={{ ...cardStyle, display: "flex", gap: 8, padding: "12px 16px" }}>
-          {[["normal", "Normaali kulukorvaus"], ["estiem", "ESTIEM-matka"], ["kilometrikorvaus", "Kilometrikorvaus"]].map(([val, label]) => (
+          {[["normal", "Normaali kulukorvaus"], ["estiem", "ESTIEM-matka"]].map(([val, label]) => (
             <button key={val} onClick={() => setFormType(val)} style={{
               flex: 1, padding: "10px 16px", borderRadius: 6, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.2s",
               background: formType === val ? KAPLAAKI_NAVY : "#f0f0f0", color: formType === val ? "#fff" : "#666",
@@ -264,7 +286,7 @@ export default function KulukorvausForm() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, ...sectionStyle }}>
             <div>
               <label style={labelStyle}>Puhelinnumero *</label>
-              <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="045 123 4567" style={inputStyle(!phone || validatePhone(phone))} />
+              <input value={phone} onChange={e => setPhone(formatPhone(e.target.value))} placeholder="045 123 4567" style={inputStyle(!phone || validatePhone(phone))} />
             </div>
             <div>
               <label style={labelStyle}>Sähköposti *</label>
@@ -279,61 +301,14 @@ export default function KulukorvausForm() {
             </div>
             <div>
               <label style={labelStyle}>IBAN *</label>
-              <input value={iban} onChange={e => setIban(e.target.value)} placeholder="FI21 1234 5600 0007 85" style={inputStyle(!iban || validateIBAN(iban))} />
+              <input value={iban} onChange={e => setIban(formatIBAN(e.target.value))} placeholder="FI21 1234 5600 0007 85" style={inputStyle(!iban || validateIBAN(iban))} />
               {iban && !validateIBAN(iban) && <div style={{ fontSize: 11, color: "#ef4444", marginTop: 2 }}>IBAN-muoto virheellinen</div>}
             </div>
           </div>
         </div>
 
-        {/* Kilometrikorvaus section */}
-        {formType === "kilometrikorvaus" && (
-          <div style={cardStyle}>
-            <h2 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: KAPLAAKI_NAVY }}>Kilometrikorvaus</h2>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, ...sectionStyle }}>
-              <div>
-                <label style={labelStyle}>Matkan lähtöpaikka *</label>
-                <input value={kmFrom} onChange={e => setKmFrom(e.target.value)} placeholder="Lappeenranta" style={inputStyle(!!kmFrom.trim())} />
-              </div>
-              <div>
-                <label style={labelStyle}>Matkan määränpää *</label>
-                <input value={kmTo} onChange={e => setKmTo(e.target.value)} placeholder="Helsinki" style={inputStyle(!!kmTo.trim())} />
-              </div>
-            </div>
-
-            <div style={sectionStyle}>
-              <label style={labelStyle}>Matkan tarkoitus / selitys *</label>
-              <input value={kmPurpose} onChange={e => setKmPurpose(e.target.value)} placeholder="esim. Hallituspalaveri, ESTIEM-kokous" style={inputStyle(!!kmPurpose.trim())} />
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, ...sectionStyle }}>
-              <div>
-                <label style={labelStyle}>Ajetut kilometrit *</label>
-                <input value={kmDistance} onChange={e => setKmDistance(e.target.value)} placeholder="150" type="number" min="1" style={inputStyle(!kmDistance || parseFloat(kmDistance) >= 1)} />
-              </div>
-              <div>
-                <label style={labelStyle}>Polttoaineen litrahinta € *</label>
-                <input value={kmFuelPrice} onChange={e => setKmFuelPrice(e.target.value)} placeholder="1,75" style={inputStyle(!kmFuelPrice || parseFloat((kmFuelPrice || "").replace(",", ".")) > 0)} />
-              </div>
-            </div>
-
-            <div style={{ background: "#eef4ff", border: "1px solid #c5d8f6", borderRadius: 8, padding: "14px 16px" }}>
-              <div style={{ fontSize: 11, color: "#4a6580", marginBottom: 8 }}>
-                {parseFloat(kmDistance) || 0} km × 6 L/100km × {parseFloat((kmFuelPrice || "0").replace(",", ".")).toFixed(2)} €/L
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: KAPLAAKI_NAVY }}>Laskettu korvaus</span>
-                <div style={{ background: KAPLAAKI_NAVY, padding: "8px 16px", borderRadius: 6, fontSize: 18, fontWeight: 700, color: "#fff", minWidth: 100, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-                  {kmCompensation.toFixed(2)} <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.7 }}>EUR</span>
-                </div>
-              </div>
-              <div style={{ fontSize: 10, color: "#888", marginTop: 8 }}>Kulutus 6 L/100km (kiinteä) — kattaa vain polttoaineen</div>
-            </div>
-          </div>
-        )}
-
         {/* Erittely */}
-        {formType !== "kilometrikorvaus" && <div style={cardStyle}>
+        <div style={cardStyle}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2 style={{ margin: 0, fontSize: 14, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: KAPLAAKI_NAVY }}>Erittely</h2>
             <input value={tapahtuma} onChange={e => setTapahtuma(e.target.value)} placeholder="Tapahtuma" style={{ ...inputStyle(), flex: 1, fontSize: 13 }} />
@@ -377,13 +352,84 @@ export default function KulukorvausForm() {
           </button>
 
           {/* Total */}
-          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginTop: 16, paddingTop: 12, borderTop: `2px solid ${KAPLAAKI_NAVY}`, gap: 12 }}>
+          {total > 0 && (
+            <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginTop: 16, paddingTop: 12, borderTop: `1px solid #eee`, gap: 12 }}>
+              <span style={{ fontSize: 13, color: "#666" }}>Kulut yhteensä</span>
+              <div style={{ background: "#f0f4f8", padding: "6px 14px", borderRadius: 6, fontSize: 16, fontWeight: 700, minWidth: 90, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                {total.toFixed(2)} <span style={{ fontSize: 11, fontWeight: 500, color: "#888" }}>EUR</span>
+              </div>
+            </div>
+          )}
+
+          {/* Kilometrikorvaus toggle */}
+          <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px dashed #ddd` }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
+              <div onClick={() => setIncludeKm(v => !v)} style={{
+                width: 18, height: 18, borderRadius: 4, border: `1.5px solid ${includeKm ? KAPLAAKI_NAVY : "#ccc"}`,
+                background: includeKm ? KAPLAAKI_NAVY : "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.15s", cursor: "pointer", flexShrink: 0,
+              }}>
+                {includeKm && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 600, color: KAPLAAKI_NAVY }}>Lisää kilometrikorvaus</span>
+            </label>
+
+            {includeKm && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                  <div>
+                    <label style={labelStyle}>Matkan lähtöpaikka *</label>
+                    <input value={kmFrom} onChange={e => setKmFrom(e.target.value)} placeholder="Lappeenranta" style={inputStyle(!!kmFrom.trim())} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Matkan määränpää *</label>
+                    <input value={kmTo} onChange={e => setKmTo(e.target.value)} placeholder="Helsinki" style={inputStyle(!!kmTo.trim())} />
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                  <label style={labelStyle}>Matkan tarkoitus / selitys *</label>
+                  <input value={kmPurpose} onChange={e => setKmPurpose(e.target.value)} placeholder="esim. Hallituspalaveri, ESTIEM-kokous" style={inputStyle(!!kmPurpose.trim())} />
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
+                  <div>
+                    <label style={labelStyle}>Ajetut kilometrit *</label>
+                    <input value={kmDistance} onChange={e => setKmDistance(e.target.value)} placeholder="0" type="number" min="1" style={inputStyle(!kmDistance || parseFloat(kmDistance) >= 1)} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Kulutus L/100km *</label>
+                    <input value={kmConsumption} onChange={e => setKmConsumption(e.target.value)} placeholder="0" style={inputStyle(!kmConsumption || parseFloat((kmConsumption || "").replace(",", ".")) > 0)} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Litrahinta € *</label>
+                    <input value={kmFuelPrice} onChange={e => setKmFuelPrice(e.target.value)} placeholder="0,00" style={inputStyle(!kmFuelPrice || parseFloat((kmFuelPrice || "").replace(",", ".")) > 0)} />
+                  </div>
+                </div>
+
+                <div style={{ background: "#eef4ff", border: "1px solid #c5d8f6", borderRadius: 8, padding: "12px 14px" }}>
+                  <div style={{ fontSize: 11, color: "#4a6580", marginBottom: 6 }}>
+                    {parseFloat(kmDistance) || 0} km × {parseFloat((kmConsumption || "0").replace(",", ".")).toFixed(1)} L/100km × {parseFloat((kmFuelPrice || "0").replace(",", ".")).toFixed(2)} €/L
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "#2c5282" }}>Kilometrikorvaus</span>
+                    <span style={{ fontSize: 16, fontWeight: 700, color: KAPLAAKI_NAVY, fontVariantNumeric: "tabular-nums" }}>
+                      {kmCompensation.toFixed(2)} <span style={{ fontSize: 11, fontWeight: 500, color: "#666" }}>EUR</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Grand total */}
+          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginTop: 14, paddingTop: 12, borderTop: `2px solid ${KAPLAAKI_NAVY}`, gap: 12 }}>
             <span style={{ fontSize: 14, fontWeight: 700 }}>Yhteensä</span>
             <div style={{ background: "#eef4ff", padding: "8px 16px", borderRadius: 6, fontSize: 18, fontWeight: 700, minWidth: 100, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-              {total.toFixed(2)} <span style={{ fontSize: 12, fontWeight: 500, color: "#666" }}>EUR</span>
+              {displayTotal.toFixed(2)} <span style={{ fontSize: 12, fontWeight: 500, color: "#666" }}>EUR</span>
             </div>
           </div>
-        </div>}
+        </div>
 
         {/* Liitteet & checklist */}
         <div style={cardStyle}>
@@ -420,18 +466,15 @@ export default function KulukorvausForm() {
           <div style={{ background: "#fafafa", borderRadius: 8, padding: 16 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: "#666", marginBottom: 10 }}>Tarkistuslista ennen lähetystä:</div>
 
-            {formType === "kilometrikorvaus" ? (
-              <Checkbox checked={kmFuelReceiptAttached} onChange={setKmFuelReceiptAttached} label="Tankkauskuitti liitteenä" required />
-            ) : (
+            <Checkbox checked={receiptsAttached} onChange={setReceiptsAttached} label="Kaikki kuitit liitteenä + pankista maksutositteet" required />
+            {includeKm && (
+              <Checkbox checked={kmFuelReceiptAttached} onChange={setKmFuelReceiptAttached} label="Tankkauskuitti liitteenä (kilometrikorvaus)" required />
+            )}
+            {formType === "estiem" && (
               <>
-                <Checkbox checked={receiptsAttached} onChange={setReceiptsAttached} label="Kaikki kuitit liitteenä + pankista maksutositteet" required />
-                {formType === "estiem" && (
-                  <>
-                    <Checkbox checked={hasReport} onChange={setHasReport} label="Matkaraportti kirjoitettu ja liitteenä" required />
-                    <Checkbox checked={hasCompensation} onChange={setHasCompensation} label="Päästökompensaatio suoritettu (aircanada.chooose.today) ja kuitti liitteenä" required />
-                    <Checkbox checked={hasCertificate} onChange={setHasCertificate} label="ESTIEM-osallistumistodistus liitteenä (LG, nimi, maksu, tapahtuma, allekirjoitus)" required />
-                  </>
-                )}
+                <Checkbox checked={hasReport} onChange={setHasReport} label="Matkaraportti kirjoitettu ja liitteenä" required />
+                <Checkbox checked={hasCompensation} onChange={setHasCompensation} label="Päästökompensaatio suoritettu (aircanada.chooose.today) ja kuitti liitteenä" required />
+                <Checkbox checked={hasCertificate} onChange={setHasCertificate} label="ESTIEM-osallistumistodistus liitteenä (LG, nimi, maksu, tapahtuma, allekirjoitus)" required />
               </>
             )}
           </div>
@@ -442,7 +485,7 @@ export default function KulukorvausForm() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div>
               <label style={labelStyle}>Paikka ja päivämäärä *</label>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 100px", gap: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 110px", gap: 8 }}>
                 <input value={location} onChange={e => setLocation(e.target.value)} placeholder="Lappeenranta" style={inputStyle(!!location.trim())} />
                 <input value={dateField} onChange={e => setDateField(e.target.value)} style={inputStyle()} />
               </div>

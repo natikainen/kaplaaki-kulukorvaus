@@ -104,7 +104,7 @@ function addFormPage(doc, data, logoDataUrl, fontName = "helvetica") {
   // Form type badge
   const badge = formType === "estiem"
     ? `ESTIEM-matka${tapahtuma ? ` — ${tapahtuma}` : ""}${estiemEventType ? ` (${estiemEventType})` : ""}`
-    : "Normaali kulukorvaus";
+    : data.includeKm ? "Normaali kulukorvaus + Kilometrikorvaus" : "Normaali kulukorvaus";
   doc.setFillColor(220, 235, 255);
   doc.setDrawColor(...NAVY);
   doc.roundedRect(ml, 32, mr - ml, 8, 2, 2, "FD");
@@ -155,10 +155,10 @@ function addFormPage(doc, data, logoDataUrl, fontName = "helvetica") {
   // Erittely
   section("ERITTELY");
   if (tapahtuma) {
-    doc.setTextColor(80, 80, 80);
-    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7);
     doc.setFont(fontName, "normal");
-    doc.text(tapahtuma, mr, y - 5, { align: "right" });
+    doc.text(tapahtuma, mr - 2, y - 5, { align: "right" });
   }
 
   // Table header
@@ -188,7 +188,66 @@ function addFormPage(doc, data, logoDataUrl, fontName = "helvetica") {
     y += 6;
   });
 
-  // Total
+  // Kulut total (only when there are rows)
+  if (filledRows.length > 0) {
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.3);
+    doc.line(ml, y, mr, y);
+    y += 1;
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(8);
+    doc.setFont(fontName, "normal");
+    doc.text("Kulut yhteensä", mr - 52, y + 4);
+    doc.setTextColor(30, 30, 30);
+    doc.setFont(fontName, "bold");
+    doc.text(`${total.toFixed(2)} EUR`, mr - 2, y + 4, { align: "right" });
+    doc.setLineWidth(0.2);
+    y += 8;
+  }
+
+  // Kilometrikorvaus section (optional)
+  if (data.includeKm) {
+    const { kmFrom, kmTo, kmPurpose, kmDistance, kmConsumption, kmFuelPrice, kmCompensation } = data;
+    const consVal = kmConsumption || 6;
+    section("KILOMETRIKORVAUS");
+    field("Lähtöpaikka", kmFrom, ml, 80);
+    field("Määränpää", kmTo, ml + 90, mr - (ml + 90));
+    y += 12;
+    field("Tarkoitus / selitys", kmPurpose, ml, mr - ml);
+    y += 12;
+
+    doc.setFillColor(...LIGHT);
+    doc.rect(ml, y, mr - ml, 7, "F");
+    doc.setTextColor(80, 80, 80);
+    doc.setFontSize(7);
+    doc.setFont(fontName, "bold");
+    doc.text("AJETUT KM", ml + 2, y + 4.5);
+    doc.text("KULUTUS", ml + 40, y + 4.5);
+    doc.text("LITRAHINTA", ml + 78, y + 4.5);
+    doc.text("LASKUKAAVA", ml + 116, y + 4.5);
+    doc.text("KORVAUS", mr - 2, y + 4.5, { align: "right" });
+    y += 8;
+    doc.setTextColor(30, 30, 30);
+    doc.setFontSize(8);
+    doc.setFont(fontName, "normal");
+    doc.text(`${kmDistance} km`, ml + 2, y + 3.5);
+    doc.text(`${consVal.toFixed(1)} L/100km`, ml + 40, y + 3.5);
+    doc.text(`${(kmFuelPrice || 0).toFixed(2)} €/L`, ml + 78, y + 3.5);
+    doc.text(`${kmDistance} × ${(consVal / 100).toFixed(3)} × ${(kmFuelPrice || 0).toFixed(2)}`, ml + 116, y + 3.5);
+    doc.text((kmCompensation || 0).toFixed(2), mr - 2, y + 3.5, { align: "right" });
+    y += 8;
+
+    doc.setFillColor(240, 248, 240);
+    doc.setDrawColor(180, 220, 180);
+    doc.roundedRect(ml, y, mr - ml, 7, 1, 1, "FD");
+    doc.setTextColor(60, 120, 60);
+    doc.setFontSize(7);
+    doc.setFont(fontName, "normal");
+    doc.text(`Kulutus ${consVal.toFixed(1)} L/100km — kattaa vain polttoaineen`, W / 2, y + 4.5, { align: "center" });
+    y += 10;
+  }
+
+  // Grand total
   doc.setDrawColor(...NAVY);
   doc.setLineWidth(0.5);
   doc.line(ml, y, mr, y);
@@ -199,7 +258,8 @@ function addFormPage(doc, data, logoDataUrl, fontName = "helvetica") {
   doc.setFontSize(9);
   doc.setFont(fontName, "bold");
   doc.text("YHTEENSÄ", mr - 48, y + 5.5);
-  doc.text(`${total.toFixed(2)} EUR`, mr - 2, y + 5.5, { align: "right" });
+  const grandTotal = total + (data.includeKm ? (data.kmCompensation || 0) : 0);
+  doc.text(`${grandTotal.toFixed(2)} EUR`, mr - 2, y + 5.5, { align: "right" });
   doc.setLineWidth(0.2);
   y += 13;
 
@@ -248,185 +308,11 @@ function addFormPage(doc, data, logoDataUrl, fontName = "helvetica") {
 }
 
 
-function addKilometriPage(doc, data, logoDataUrl, fontName = "helvetica") {
-  const { name, phone, email, bank, iban, kmFrom, kmTo, kmPurpose, kmDistance, kmFuelPrice, kmCompensation,
-    attachmentDesc, location, dateField, signature } = data;
-
-  const W = 210, ml = 14, mr = 196;
-
-  doc.setFillColor(...NAVY);
-  doc.rect(0, 0, W, 28, "F");
-
-  if (logoDataUrl) doc.addImage(logoDataUrl, "PNG", ml, 4, 20, 20);
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(16);
-  doc.setFont(fontName, "bold");
-  doc.text("KAPLAAKI RY", ml + 24, 12);
-  doc.setFontSize(8);
-  doc.setFont(fontName, "normal");
-  doc.text("KILOMETRIKORVAUSANOMUS", ml + 24, 18);
-
-  const tnW = 26, tnH = 16, tnX = mr - tnW;
-  doc.setFillColor(255, 255, 255);
-  doc.setDrawColor(255, 255, 255);
-  doc.setLineWidth(0.4);
-  doc.roundedRect(tnX, 2, tnW, tnH, 2, 2, "FD");
-  doc.setTextColor(...NAVY);
-  doc.setFontSize(6);
-  doc.setFont(fontName, "bold");
-  doc.text("TOSITE NRO", tnX + tnW / 2, 6.5, { align: "center" });
-  doc.setDrawColor(180, 180, 180);
-  doc.line(tnX + 2, 8, tnX + tnW - 2, 8);
-  doc.setLineWidth(0.2);
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(7);
-  doc.setFont(fontName, "normal");
-  doc.text("Laserkatu 10, 53850 Lappeenranta", tnX - 4, 16, { align: "right" });
-
-  doc.setFillColor(220, 235, 255);
-  doc.setDrawColor(...NAVY);
-  doc.roundedRect(ml, 32, mr - ml, 8, 2, 2, "FD");
-  doc.setTextColor(...NAVY);
-  doc.setFontSize(8);
-  doc.setFont(fontName, "bold");
-  doc.text("Kilometrikorvaus", W / 2, 37.5, { align: "center" });
-
-  let y = 46;
-
-  const section = (title) => {
-    doc.setFillColor(...NAVY);
-    doc.rect(ml, y, mr - ml, 6, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
-    doc.setFont(fontName, "bold");
-    doc.text(title, ml + 2, y + 4.2);
-    y += 9;
-  };
-
-  const field = (label, value, x, w, inline = false) => {
-    doc.setTextColor(120, 120, 120);
-    doc.setFontSize(7);
-    doc.setFont(fontName, "normal");
-    doc.text(label, x, y);
-    doc.setTextColor(30, 30, 30);
-    doc.setFontSize(9);
-    doc.setFont(fontName, "bold");
-    doc.text(value || "—", x, y + 4.5);
-    if (!inline) {
-      doc.setDrawColor(200, 200, 200);
-      doc.line(x, y + 5.5, x + w, y + 5.5);
-    }
-  };
-
-  section("HAKIJAN TIEDOT");
-  field("Nimi", name, ml, mr - ml);
-  y += 12;
-  field("Puhelinnumero", phone, ml, 80);
-  field("Sähköposti", email, ml + 90, mr - (ml + 90));
-  y += 12;
-  field("Pankki / BIC", bank, ml, 50);
-  field("IBAN", iban, ml + 60, mr - ml - 60);
-  y += 14;
-
-  section("MATKATIEDOT");
-  field("Lähtöpaikka", kmFrom, ml, 80);
-  field("Määränpää", kmTo, ml + 90, mr - (ml + 90));
-  y += 12;
-  field("Tarkoitus / selitys", kmPurpose, ml, mr - ml);
-  y += 14;
-
-  section("LASKELMA");
-  doc.setFillColor(...LIGHT);
-  doc.rect(ml, y, mr - ml, 7, "F");
-  doc.setTextColor(80, 80, 80);
-  doc.setFontSize(7);
-  doc.setFont(fontName, "bold");
-  doc.text("AJETUT KM", ml + 2, y + 4.5);
-  doc.text("KULUTUS", ml + 42, y + 4.5);
-  doc.text("LITRAHINTA", ml + 82, y + 4.5);
-  doc.text("LASKUKAAVA", ml + 122, y + 4.5);
-  doc.text("KORVAUS", mr - 2, y + 4.5, { align: "right" });
-  y += 8;
-
-  doc.setTextColor(30, 30, 30);
-  doc.setFontSize(9);
-  doc.setFont(fontName, "normal");
-  doc.text(`${kmDistance} km`, ml + 2, y + 3.5);
-  doc.text("6 L/100km", ml + 42, y + 3.5);
-  doc.text(`${(kmFuelPrice || 0).toFixed(2)} €/L`, ml + 82, y + 3.5);
-  doc.text(`${kmDistance} × 0,06 × ${(kmFuelPrice || 0).toFixed(2)}`, ml + 122, y + 3.5);
-  doc.text((kmCompensation || 0).toFixed(2), mr - 2, y + 3.5, { align: "right" });
-  y += 8;
-
-  doc.setDrawColor(...NAVY);
-  doc.setLineWidth(0.5);
-  doc.line(ml, y, mr, y);
-  y += 1;
-  doc.setFillColor(...NAVY);
-  doc.rect(mr - 50, y, 50, 8, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(9);
-  doc.setFont(fontName, "bold");
-  doc.text("YHTEENSÄ", mr - 48, y + 5.5);
-  doc.text(`${(kmCompensation || 0).toFixed(2)} EUR`, mr - 2, y + 5.5, { align: "right" });
-  doc.setLineWidth(0.2);
-  y += 13;
-
-  doc.setFillColor(240, 248, 240);
-  doc.setDrawColor(180, 220, 180);
-  doc.roundedRect(ml, y, mr - ml, 8, 2, 2, "FD");
-  doc.setTextColor(60, 120, 60);
-  doc.setFontSize(7);
-  doc.setFont(fontName, "normal");
-  doc.text("Kulutus 6 L/100km (kiinteä) — kattaa vain polttoaineen", W / 2, y + 5, { align: "center" });
-  y += 13;
-
-  section("LIITTEET");
-  field("Liitteiden kuvaus", attachmentDesc, ml, mr - ml);
-  y += 14;
-
-  section("ALLEKIRJOITUS");
-  field("Paikka ja päivämäärä", `${location}, ${dateField}`, ml, 90);
-  field("Allekirjoitus", signature, ml + 100, 96, true);
-  y += 14;
-
-  const tvY = y;
-  const tvHeight = 34;
-  doc.setFillColor(...LIGHT);
-  doc.rect(ml, y, mr - ml, tvHeight, "F");
-  doc.setDrawColor(180, 180, 180);
-  doc.rect(ml, y, mr - ml, tvHeight);
-  doc.setTextColor(100, 100, 100);
-  doc.setFontSize(7);
-  doc.setFont(fontName, "bold");
-  doc.text("TALOUSVASTAAVA TÄYTTÄÄ", ml + 2, y + 4);
-  doc.setFont(fontName, "normal");
-  doc.text("Hyväksytty:", ml + 2, y + 10);
-  doc.setDrawColor(180, 180, 180);
-  doc.line(ml + 22, y + 10.5, ml + 90, y + 10.5);
-  doc.text("PVM:", ml + 100, y + 10);
-  doc.line(ml + 110, y + 10.5, mr - 2, y + 10.5);
-  doc.text("Maksettu:", ml + 2, y + 17);
-  doc.line(ml + 19, y + 17.5, ml + 90, y + 17.5);
-  doc.text("Lisätiedot:", ml + 2, y + 24);
-  doc.line(ml + 20, y + 24.5, mr - 2, y + 24.5);
-
-  doc.setTextColor(160, 160, 160);
-  doc.setFontSize(6);
-  doc.text(`Tulostettu: ${new Date().toLocaleDateString("fi-FI")}  |  Kaplaaki ry — Tuotantotalouden kilta — LUT-yliopisto`, W / 2, 293, { align: "center" });
-
-  return { tvY, tnX, tnW };
-}
-
 export async function generateAndDownloadPDF(data) {
   // 1. Generate form page with jsPDF
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const logoDataUrl = await getLogoDataUrl();
-  const { tvY, tnX, tnW } = data.formType === "kilometrikorvaus"
-    ? addKilometriPage(doc, data, logoDataUrl, "helvetica")
-    : addFormPage(doc, data, logoDataUrl, "helvetica");
+  const { tvY, tnX, tnW } = addFormPage(doc, data, logoDataUrl, "helvetica");
 
   const formPdfBytes = doc.output("arraybuffer");
 
@@ -508,9 +394,7 @@ export async function generateAndDownloadPDF(data) {
   const a = document.createElement("a");
   a.href = url;
   const tapahtumaSlug = data.tapahtuma ? `_${data.tapahtuma.replace(/\s+/g, "_")}` : "";
-  a.download = data.formType === "kilometrikorvaus"
-    ? `${data.dateField.replace(/\./g, "-")}_kilometrikorvaus_${data.name.replace(/\s+/g, "_")}.pdf`
-    : `${data.dateField.replace(/\./g, "-")}_kulukorvaus_${data.name.replace(/\s+/g, "_")}${tapahtumaSlug}.pdf`;
+  a.download = `${data.dateField.replace(/\./g, "-")}_kulukorvaus_${data.name.replace(/\s+/g, "_")}${tapahtumaSlug}.pdf`;
   a.click();
   URL.revokeObjectURL(url);
 }
