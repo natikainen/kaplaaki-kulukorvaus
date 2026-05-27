@@ -149,7 +149,6 @@ export default function KulukorvausForm() {
 
     if (formType === "estiem") {
       if (!tapahtuma.trim()) errs.push("ESTIEM-tapahtuman nimi puuttuu");
-      if (!hasReport) errs.push("Matkaraportti vaaditaan ESTIEM-korvaukseen");
       if (!hasCompensation) errs.push("Päästökompensaatio vaaditaan ESTIEM-korvaukseen");
       if (!hasCertificate) errs.push("Osallistumistodistus vaaditaan ESTIEM-korvaukseen");
     }
@@ -248,7 +247,7 @@ export default function KulukorvausForm() {
               </div>
             </div>
             <div style={{ textAlign: "right", fontSize: 11, opacity: 0.5 }}>
-              Laserkatu 10<br/>53850 Lappeenranta
+              
             </div>
           </div>
         </div>
@@ -472,9 +471,8 @@ export default function KulukorvausForm() {
             )}
             {formType === "estiem" && (
               <>
-                <Checkbox checked={hasReport} onChange={setHasReport} label="Matkaraportti kirjoitettu ja liitteenä" required />
-                <Checkbox checked={hasCompensation} onChange={setHasCompensation} label="Päästökompensaatio suoritettu (aircanada.chooose.today) ja kuitti liitteenä" required />
-                <Checkbox checked={hasCertificate} onChange={setHasCertificate} label="ESTIEM-osallistumistodistus liitteenä (LG, nimi, maksu, tapahtuma, allekirjoitus)" required />
+                <Checkbox checked={hasCompensation} onChange={setHasCompensation} label="Päästökompensaatio suoritettu ja kuitti liitteenä" required />
+                <Checkbox checked={hasCertificate} onChange={setHasCertificate} label="ESTIEM-Tapahtuman osallistumistodistus liitteenä" required />
               </>
             )}
           </div>
@@ -525,11 +523,11 @@ export default function KulukorvausForm() {
           onMouseDown={e => { if (!generating) e.currentTarget.style.transform = "scale(0.98)"; }}
           onMouseUp={e => e.currentTarget.style.transform = "scale(1)"}
         >
-          {generating ? "Luodaan PDF..." : "Luo ja lataa PDF →"}
+          {generating ? "Luodaan PDF..." : "Luo PDF-tiedosto"}
         </button>
 
         <p style={{ textAlign: "center", fontSize: 11, color: "#aaa", marginTop: 12 }}>
-          Kaplaaki ry — Tuotantotalouden kilta — LUT-yliopisto
+          Tuotantotalouden kilta Kaplaaki ry
         </p>
       </div>
     </div>
