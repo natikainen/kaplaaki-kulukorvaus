@@ -235,12 +235,13 @@ export default function KulukorvausForm() {
   return (
     <div style={{ minHeight: "100vh", background: "#f5f5f0", fontFamily: "'Roboto Slab', serif", color: "#1a1a1a" }}>
       {/* Header */}
-      <div style={{ background: KAPLAAKI_NAVY, color: "#fff", padding: "16px 24px", position: "relative" }}>
-        <img src={KAPLAAKI_LOGO} alt="Kaplaaki ry" style={{ position: "absolute", top: 12, left: 20, width: 48, height: 48, filter: "brightness(0) invert(1)" }} />
-        <div style={{ textAlign: "center" }}>
+      <div style={{ background: KAPLAAKI_NAVY, color: "#fff", padding: "16px 24px", display: "flex", alignItems: "center" }}>
+        <img src={KAPLAAKI_LOGO} alt="Kaplaaki ry" style={{ width: 48, height: 48, filter: "brightness(0) invert(1)", flexShrink: 0 }} />
+        <div style={{ flex: 1, textAlign: "center" }}>
           <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em" }}>KAPLAAKI RY</h1>
           <p style={{ margin: "2px 0 0", fontSize: 11, opacity: 0.6, letterSpacing: "0.05em", textTransform: "uppercase" }}>Kulukorvausanomus</p>
         </div>
+        <div style={{ width: 48, flexShrink: 0 }} />
       </div>
 
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "24px 16px 60px" }}>
