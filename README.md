@@ -1,70 +1,40 @@
-# Getting Started with Create React App
+# Kaplaaki ry — Kulukorvauslomake
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Selainpohjainen lomake Kaplaaki ry:n jäsenille kulukorvausten ja ESTIEM-matkakorvausten hakemiseen. Lomake tuottaa yhden valmiin PDF-anomuksen liitteineen, joka lähetetään sähköpostilla taloudenhoidolle käsiteltäväksi.
 
-## Available Scripts
+## Miksi tämä tehtiin
 
-In the project directory, you can run:
+Kulukorvausten hakeminen hoidettiin aiemmin käsin täytettävillä lomakkeilla ja erillisillä liitesähköposteilla, mikä aiheutti töitä sekä hakijalle että talousvastaavalle: puuttuvia tietoja, virheellisiä IBAN- tai puhelinnumeroita, hajallaan olevia kuitteja ja epäyhtenäistä ulkoasua kirjanpitoa varten. Tämä sovellus digitalisoi prosessin:
 
-### `npm start`
+- **Validointi ajossa** — IBAN, puhelinnumero ja sähköposti tarkistetaan ja muotoillaan automaattisesti ennen kuin lomake voi mennä eteenpäin.
+- **Yksi PDF, ei erillisiä liitteitä** — anomustiedot, kuluerittely, mahdollinen kilometrikorvaus ja kuittiliitteet (kuvat ja PDF:t) yhdistetään yhdeksi tiedostoksi, jossa on myös valmis kenttä talousvastaavan hyväksynnälle.
+- **ESTIEM-matkat omana logiikkanaan** — matkan tyyppi (akateeminen / muu / edustustapahtuma) määrää automaattisesti korvausprosentin, ja talousvastaavalle on oma osio lopullisen korvaussumman vahvistamiseen.
+- **Kohtuullinen tiedostokoko** — puhelimella otetut kuittikuvat ja skannatut PDF-liitteet pakataan automaattisesti, jotta anomukset eivät paisu tarpeettoman suuriksi sähköpostiliitteinä.
+- **Kaksikielisyys** — lomake toimii suomeksi ja englanniksi, koska Kaplaaki ry:n jäsenistössä on myös kansainvälisiä opiskelijoita.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Mihin tätä käytetään
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+Kaplaaki ry:n jäsen täyttää lomakkeen hakiessaan korvausta kuluista (esim. kiltatapahtumat, hankinnat) tai matkakuluista ESTIEM-tapahtumiin:
 
-### `npm test`
+1. Hakija valitsee lomaketyypin (normaali kulukorvaus tai ESTIEM-matka), täyttää tietonsa, kuluerittelyn ja tarvittaessa kilometrikorvauksen, sekä liittää kuittikuvat/-PDF:t.
+2. Sovellus generoi selaimessa yhden PDF-tiedoston, joka sisältää kaikki tiedot, liitteet ja talousvastaavan täytettävän hyväksymisosion.
+3. Hakija lataa PDF:n ja lähettää sen sähköpostilla osoitteeseen `talous@kaplaaki.fi` (ESTIEM-matkoista myös `estiem@kaplaaki.fi`).
+4. Talousvastaava tarkistaa, hyväksyy ja kirjaa korvauksen Kitsas-kirjanpitoon.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Tekniikka
 
-### `npm run build`
+- React (Create React App) -yksisivusovellus, ei backendiä — kaikki PDF-generointi ja kuvien pakkaus tapahtuu käyttäjän selaimessa.
+- PDF kootaan `jsPDF`:llä ja `pdf-lib`:llä; liite-PDF:t renderöidään ja pakataan `pdfjs-dist`:llä.
+- Staattinen build, joka voidaan julkaista millä tahansa staattisen sisällön hostingilla (esim. cPanel).
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Kehitys
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+npm install
+npm start       # kehityspalvelin, http://localhost:3000
+npm run build   # tuotantobuild build/-kansioon
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Julkaisu
 
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+`npm run build` tuottaa staattiset tiedostot `build/`-kansioon. Kansion sisältö puretaan sellaisenaan palvelimen julkiseen hakemistoon (esim. cPanelin File Managerilla).
