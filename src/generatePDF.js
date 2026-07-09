@@ -10,7 +10,7 @@ function normalizeToJpeg(arrayBuf, maxPx, quality) {
     const url = URL.createObjectURL(blob);
     const img = new Image();
     img.onload = () => {
-      URL.revokeObjectURL(url);
+      URL.revokeObjectURL(url); 
       const scale = Math.min(maxPx / img.width, maxPx / img.height, 1);
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(img.width * scale);
@@ -30,8 +30,7 @@ function normalizeToJpeg(arrayBuf, maxPx, quality) {
 
 async function getLogoDataUrl() {
   try {
-    const base = process.env.PUBLIC_URL || "";
-    const res = await fetch(`${base}/KAPLAAKI%20logo%20white.svg`);
+    const res = await fetch("./KAPLAAKI%20logo%20white.svg");
     const svgText = await res.text();
     const match = svgText.match(/xlink:href="(data:image\/png;base64,[^"]+)"/);
     if (!match) return null;
@@ -284,14 +283,14 @@ function addFormPage(doc, data, logoDataUrl, fontName = "helvetica") {
   doc.setTextColor(100, 100, 100);
   doc.setFontSize(7);
   doc.setFont(fontName, "bold");
-  doc.text("TALOUSVASTAAVA TÄYTTÄÄ", ml + 2, y + 4);
+  doc.text("talousvastaava täyttää", ml + 2, y + 4);
   doc.setFont(fontName, "normal");
   // Row 1: Hyväksytty | PVM
   doc.text("Hyväksytty:", ml + 2, y + 10);
   doc.setDrawColor(180, 180, 180);
   doc.line(ml + 22, y + 10.5, ml + 90, y + 10.5);
-  doc.text("PVM:", ml + 100, y + 10);
-  doc.line(ml + 110, y + 10.5, mr - 2, y + 10.5);
+  doc.text("Talousvastaavan allekirjoitus:", ml + 100, y + 7);
+  doc.line(ml + 100, y + 10.5, mr - 2, y + 10.5);
   // Row 2: Maksettu
   doc.text("Maksettu:", ml + 2, y + 17);
   doc.line(ml + 19, y + 17.5, ml + 90, y + 17.5);
@@ -344,7 +343,7 @@ export async function generateAndDownloadPDF(data) {
 
   // Talousvastaava fields
   form.createTextField("hyvaksytty").addToPage(formPage, fieldOpts(ml + 22, tvY + 6.5, 68, 5));
-  form.createTextField("pvm").addToPage(formPage, fieldOpts(ml + 110, tvY + 6.5, mr - 2 - (ml + 110), 5));
+  form.createTextField("tv_allekirjoitus").addToPage(formPage, fieldOpts(ml + 100, tvY + 7.5, mr - 2 - (ml + 100), 4));
   form.createTextField("maksettu").addToPage(formPage, fieldOpts(ml + 19, tvY + 13.5, 71, 5));
   form.createTextField("lisatiedot").addToPage(formPage, fieldOpts(ml + 20, tvY + 20.5, mr - 2 - (ml + 20), 5));
 

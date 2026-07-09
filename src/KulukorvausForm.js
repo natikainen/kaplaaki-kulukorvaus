@@ -61,7 +61,7 @@ const LABELS = {
     kmTo: "Matkan määränpää",
     kmToPlaceholder: "Helsinki",
     kmPurpose: "Matkan tarkoitus / selitys",
-    kmPurposePlaceholder: "esim. Hallituspalaveri, ESTIEM-kokous",
+    kmPurposePlaceholder: "esim. Edustusmatka",
     kmDistance: "Ajetut kilometrit",
     kmConsumption: "Kulutus L/100km",
     kmFuelPrice: "Litrahinta €",
@@ -487,7 +487,7 @@ export default function KulukorvausForm() {
       {/* ── HEADER ── */}
       <div style={{ background: TH.primary, color: "#fff", padding: "18px 28px", display: "flex", alignItems: "center" }}>
         <div style={{ width: 120, height: 120, background: "#fff", borderRadius: "50%", flexShrink: 0, overflow: "hidden", boxShadow: "0 0 0 2px rgba(255,255,255,0.25)", margin: "-8px 0" }}>
-          <img src="/kaplaaki-logo.png" alt="Kaplaaki" style={{ width: "100%", height: "100%", display: "block" }} />
+          <img src="./kaplaaki-logo.png" alt="Kaplaaki" style={{ width: "100%", height: "100%", display: "block" }} />
         </div>
         <div style={{ marginLeft: 16 }}>
           <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: TH.headingFont, letterSpacing: "0.02em" }}>{L.appTitle}</h1>
