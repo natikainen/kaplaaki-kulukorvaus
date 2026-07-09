@@ -1,8 +1,36 @@
 import { jsPDF } from "jspdf";
 import { PDFDocument, rgb } from "pdf-lib";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const NAVY = [0, 31, 63];
 const LIGHT = [240, 244, 248];
+
+// Liitteiden pakkausasetukset — iPhonen kuvat/skannaukset eivät tarvitse
+// täyttä laatua kuittien lukemiseen, joten pienennetään tiedostokokoa.
+const IMG_MAX_PX = 1100;
+const IMG_QUALITY = 0.65;
+const PDF_PAGE_MAX_PX = 1600; // skannatut A4-sivut tarvitsevat vähän enemmän resoluutiota tekstin luettavuuden vuoksi
+const PDF_PAGE_QUALITY = 0.65;
+
+async function renderPdfPageToJpeg(pdfJsDoc, pageIndex, maxPx, quality) {
+  const page = await pdfJsDoc.getPage(pageIndex + 1); // pdfjs-sivut ovat 1-indeksoituja
+  const baseViewport = page.getViewport({ scale: 1 });
+  const scale = Math.min(maxPx / baseViewport.width, maxPx / baseViewport.height, 3);
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(viewport.width);
+  canvas.height = Math.round(viewport.height);
+  await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      b => b ? b.arrayBuffer().then(resolve).catch(reject) : reject(new Error("toBlob failed")),
+      "image/jpeg",
+      quality
+    );
+  });
+}
 
 function normalizeToJpeg(arrayBuf, maxPx, quality) {
   return new Promise((resolve, reject) => {
@@ -274,8 +302,9 @@ function addFormPage(doc, data, logoDataUrl, fontName = "helvetica") {
   y += 14;
 
   // Talousvastaava täyttää
+  const isEstiem = formType === "estiem";
   const tvY = y;
-  const tvHeight = 34;
+  const tvHeight = isEstiem ? 48 : 34;
   doc.setFillColor(...LIGHT);
   doc.rect(ml, y, mr - ml, tvHeight, "F");
   doc.setDrawColor(180, 180, 180);
@@ -285,25 +314,60 @@ function addFormPage(doc, data, logoDataUrl, fontName = "helvetica") {
   doc.setFont(fontName, "bold");
   doc.text("talousvastaava täyttää", ml + 2, y + 4);
   doc.setFont(fontName, "normal");
-  // Row 1: Hyväksytty | PVM
+  // Row 1: Hyväksytty | Talousvastaavan allekirjoitus
   doc.text("Hyväksytty:", ml + 2, y + 10);
   doc.setDrawColor(180, 180, 180);
   doc.line(ml + 22, y + 10.5, ml + 90, y + 10.5);
   doc.text("Talousvastaavan allekirjoitus:", ml + 100, y + 7);
   doc.line(ml + 100, y + 10.5, mr - 2, y + 10.5);
-  // Row 2: Maksettu
-  doc.text("Maksettu:", ml + 2, y + 17);
-  doc.line(ml + 19, y + 17.5, ml + 90, y + 17.5);
-  // Row 3: Lisätiedot
-  doc.text("Lisätiedot:", ml + 2, y + 24);
-  doc.line(ml + 20, y + 24.5, mr - 2, y + 24.5);
+
+  let rowY = y + 17;
+  const estiemEventTypeLabels = { academic: "Akateeminen", other: "Muu", representation: "Edustustapahtuma" };
+  const estiemPercentLabels = { academic: "70 %", other: "50 %", representation: "100 %" };
+
+  // Row: Maksettu
+  const tvMaksettuRowY = rowY;
+  doc.text("Maksettu:", ml + 2, rowY);
+  doc.line(ml + 19, rowY + 0.5, ml + 90, rowY + 0.5);
+  rowY += 7;
+
+  const tvLopullinenRowY = rowY + 7;
+  if (isEstiem) {
+    // Row: Matkan tyyppi | Korvausprosentin suuruus (molemmat hakijan valinnan mukaan, automaattisia)
+    doc.setTextColor(100, 100, 100);
+    doc.setFont(fontName, "normal");
+    doc.text("Matkan tyyppi:", ml + 2, rowY);
+    doc.setTextColor(30, 30, 30);
+    doc.setFont(fontName, "bold");
+    doc.text(estiemEventTypeLabels[estiemEventType] || "—", ml + 26, rowY);
+    doc.setTextColor(100, 100, 100);
+    doc.setFont(fontName, "normal");
+    doc.text("Korvausprosentin suuruus:", ml + 100, rowY);
+    doc.setTextColor(30, 30, 30);
+    doc.setFont(fontName, "bold");
+    doc.text(estiemPercentLabels[estiemEventType] || "—", ml + 150, rowY);
+    rowY += 7;
+
+    // Row: Lopullinen korvaus
+    doc.setTextColor(100, 100, 100);
+    doc.setFont(fontName, "normal");
+    doc.text("Lopullinen korvaus:", ml + 2, rowY);
+    doc.setDrawColor(180, 180, 180);
+    doc.line(ml + 33, rowY + 0.5, mr - 2, rowY + 0.5);
+    rowY += 7;
+  }
+
+  // Row: Lisätiedot
+  const tvLisatiedotRowY = rowY;
+  doc.text("Lisätiedot:", ml + 2, rowY);
+  doc.line(ml + 20, rowY + 0.5, mr - 2, rowY + 0.5);
 
   // Footer
   doc.setTextColor(160, 160, 160);
   doc.setFontSize(6);
   doc.text(`Tulostettu: ${new Date().toLocaleDateString("fi-FI")}  |  Kaplaaki ry — Tuotantotalouden kilta — LUT-yliopisto`, W / 2, 293, { align: "center" });
 
-  return { tvY, tnX, tnW };
+  return { tvY, tnX, tnW, isEstiem, tvLopullinenRowY, tvMaksettuRowY, tvLisatiedotRowY };
 }
 
 
@@ -311,7 +375,8 @@ export async function generateAndDownloadPDF(data) {
   // 1. Generate form page with jsPDF
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const logoDataUrl = await getLogoDataUrl();
-  const { tvY, tnX, tnW } = addFormPage(doc, data, logoDataUrl, "helvetica");
+  const { tvY, tnX, tnW, isEstiem, tvLopullinenRowY, tvMaksettuRowY, tvLisatiedotRowY } =
+    addFormPage(doc, data, logoDataUrl, "helvetica");
 
   const formPdfBytes = doc.output("arraybuffer");
 
@@ -344,8 +409,11 @@ export async function generateAndDownloadPDF(data) {
   // Talousvastaava fields
   form.createTextField("hyvaksytty").addToPage(formPage, fieldOpts(ml + 22, tvY + 6.5, 68, 5));
   form.createTextField("tv_allekirjoitus").addToPage(formPage, fieldOpts(ml + 100, tvY + 7.5, mr - 2 - (ml + 100), 4));
-  form.createTextField("maksettu").addToPage(formPage, fieldOpts(ml + 19, tvY + 13.5, 71, 5));
-  form.createTextField("lisatiedot").addToPage(formPage, fieldOpts(ml + 20, tvY + 20.5, mr - 2 - (ml + 20), 5));
+  if (isEstiem) {
+    form.createTextField("lopullinen_korvaus").addToPage(formPage, fieldOpts(ml + 33, tvLopullinenRowY - 3.5, mr - 2 - (ml + 33), 5));
+  }
+  form.createTextField("maksettu").addToPage(formPage, fieldOpts(ml + 19, tvMaksettuRowY - 3.5, 71, 5));
+  form.createTextField("lisatiedot").addToPage(formPage, fieldOpts(ml + 20, tvLisatiedotRowY - 3.5, mr - 2 - (ml + 20), 5));
 
   // 3. Append each attachment
   for (const file of (data.attachedFiles || [])) {
@@ -355,16 +423,35 @@ export async function generateAndDownloadPDF(data) {
     if (isPdf) {
       try {
         const arrayBuf = await file.arrayBuffer();
-        const attachDoc = await PDFDocument.load(arrayBuf, { ignoreEncryption: true });
-        const pages = await merged.copyPages(attachDoc, [...Array(attachDoc.getPageCount()).keys()]);
-        pages.forEach(p => merged.addPage(p));
+        const pdfJsDoc = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+        for (let i = 0; i < pdfJsDoc.numPages; i++) {
+          const jpegBuf = await renderPdfPageToJpeg(pdfJsDoc, i, PDF_PAGE_MAX_PX, PDF_PAGE_QUALITY);
+          const imgPage = merged.addPage();
+          const { width, height } = imgPage.getSize();
+          const imgEmbed = await merged.embedJpg(jpegBuf);
+          const scale = Math.min(width / imgEmbed.width, height / imgEmbed.height, 1);
+          imgPage.drawImage(imgEmbed, {
+            x: (width - imgEmbed.width * scale) / 2,
+            y: (height - imgEmbed.height * scale) / 2,
+            width: imgEmbed.width * scale,
+            height: imgEmbed.height * scale,
+          });
+        }
       } catch (e) {
-        // skip unreadable PDF
+        // Renderöinti epäonnistui — kopioidaan sivut sellaisenaan pakkaamattomana varatoimena
+        try {
+          const arrayBuf2 = await file.arrayBuffer();
+          const attachDoc = await PDFDocument.load(arrayBuf2, { ignoreEncryption: true });
+          const pages = await merged.copyPages(attachDoc, [...Array(attachDoc.getPageCount()).keys()]);
+          pages.forEach(p => merged.addPage(p));
+        } catch (e2) {
+          // skip unreadable PDF
+        }
       }
     } else if (isImage) {
       try {
         const arrayBuf = await file.arrayBuffer();
-        const jpegBuf = await normalizeToJpeg(arrayBuf, 1400, 0.8);
+        const jpegBuf = await normalizeToJpeg(arrayBuf, IMG_MAX_PX, IMG_QUALITY);
         const imgPage = merged.addPage();
         const { width, height } = imgPage.getSize();
         const imgEmbed = await merged.embedJpg(jpegBuf);
