@@ -18,8 +18,6 @@ Kaplaaki ry:n jäsen täyttää lomakkeen hakiessaan korvausta kuluista (esim. k
 
 1. Hakija valitsee lomaketyypin (normaali kulukorvaus tai ESTIEM-matka), täyttää tietonsa, kuluerittelyn ja tarvittaessa kilometrikorvauksen, sekä liittää kuittikuvat/-PDF:t.
 2. Sovellus generoi selaimessa yhden PDF-tiedoston, joka sisältää kaikki tiedot, liitteet ja talousvastaavan täytettävän hyväksymisosion.
-3. Hakija lataa PDF:n ja lähettää sen sähköpostilla osoitteeseen `talous@kaplaaki.fi` (ESTIEM-matkoista myös `estiem@kaplaaki.fi`).
-4. Talousvastaava tarkistaa, hyväksyy ja kirjaa korvauksen Kitsas-kirjanpitoon.
 
 ## Tekniikka
 
